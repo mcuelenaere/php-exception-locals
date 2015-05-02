@@ -1,184 +1,215 @@
-/*
-  +----------------------------------------------------------------------+
-  | PHP Version 7                                                        |
-  +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2015 The PHP Group                                |
-  +----------------------------------------------------------------------+
-  | This source file is subject to version 3.01 of the PHP license,      |
-  | that is bundled with this package in the file LICENSE, and is        |
-  | available through the world-wide-web at the following url:           |
-  | http://www.php.net/license/3_01.txt                                  |
-  | If you did not receive a copy of the PHP license and are unable to   |
-  | obtain it through the world-wide-web, please send a note to          |
-  | license@php.net so we can mail you a copy immediately.               |
-  +----------------------------------------------------------------------+
-  | Author:                                                              |
-  +----------------------------------------------------------------------+
-*/
-
-/* $Id$ */
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include "php.h"
-#include "php_ini.h"
-#include "ext/standard/info.h"
+#include <php.h>
+#include <ext/standard/info.h>
+#include <Zend/zend_exceptions.h>
+#include <Zend/zend_types.h>
 #include "php_exception-locals.h"
 
-/* If you declare any globals in php_exception-locals.h uncomment this:
-ZEND_DECLARE_MODULE_GLOBALS(exception-locals)
-*/
+// helper function which does all the heavy lifting
+static zval* create_locals_zval()
+{
+	zval* return_value;
+	zend_execute_data *ex;
 
-/* True global resources - no need for thread safety here */
-static int le_exception-locals;
+	ALLOC_ZVAL(return_value);
 
-/* {{{ PHP_INI
- */
-/* Remove comments and fill if you need to have entries in php.ini
-PHP_INI_BEGIN()
-    STD_PHP_INI_ENTRY("exception-locals.global_value",      "42", PHP_INI_ALL, OnUpdateLong, global_value, zend_exception-locals_globals, exception-locals_globals)
-    STD_PHP_INI_ENTRY("exception-locals.global_string", "foobar", PHP_INI_ALL, OnUpdateString, global_string, zend_exception-locals_globals, exception-locals_globals)
-PHP_INI_END()
-*/
+	// search for last called user function
+	ex = EG(current_execute_data);
+	while (ex && !ex->op_array) {
+		ex = ex->prev_execute_data;
+	}
+	if (!ex || !ex->op_array->last_var) {
+		RETVAL_NULL();
+		return return_value;
+	}
+
+	// build locals array
+	array_init(return_value);
+
+	while (ex) {
+		zval* stack_frame;
+
+		MAKE_STD_ZVAL(stack_frame);
+		array_init(stack_frame);
+
+		// skip internal handler
+		if (
+			!ex->op_array &&
+			ex->prev_execute_data &&
+			ex->prev_execute_data->opline &&
+			ex->prev_execute_data->opline->opcode != ZEND_DO_FCALL &&
+			ex->prev_execute_data->opline->opcode != ZEND_DO_FCALL_BY_NAME &&
+			ex->prev_execute_data->opline->opcode != ZEND_INCLUDE_OR_EVAL
+		) {
+			ex = ex->prev_execute_data;
+		}
+
+		// build one stack frame
+		if (ex->op_array) {
+			for (int i = ex->op_array->num_args; i < ex->op_array->last_var; i++) {
+				if (*EX_CV_NUM(ex, i)) {
+					if (UNEXPECTED(**EX_CV_NUM(ex, i) == &EG(uninitialized_zval))) {
+						continue;
+					}
+
+					Z_ADDREF_P(**EX_CV_NUM(ex, i));
+					zend_hash_quick_add(
+						Z_ARRVAL_P(stack_frame),
+						ex->op_array->vars[i].name,
+						ex->op_array->vars[i].name_len + 1,
+						ex->op_array->vars[i].hash_value,
+						(void**)*EX_CV_NUM(ex, i),
+						sizeof(zval*),
+						(void**)EX_CV_NUM(ex, i)
+					);
+				}
+			}
+		}
+
+		add_next_index_zval(return_value, stack_frame);
+
+		ex = ex->prev_execute_data;
+	}
+
+	return return_value;
+}
+
+static inline zend_class_entry* get_base_exception_ce()
+{
+	// TODO: use zend_exception_get_base() in PHP7
+	return zend_exception_get_default();
+}
+
+static zend_object_value (*original_base_exception_new)(zend_class_entry *class_type TSRMLS_DC);
+
+/* {{{ */
+static zend_object_value exception_locals_exception_new(zend_class_entry *class_type TSRMLS_DC)
+{
+	zend_object_value ex;
+	zval zval_ex;
+
+	// call original constructor
+	ex = original_base_exception_new(class_type);
+
+	// convert zend_object_value into a zval
+	Z_OBJVAL(zval_ex) = ex;
+	Z_OBJ_HT(zval_ex) = zend_get_std_object_handlers();
+
+	// fill locals value
+	zend_update_property(class_type, &zval_ex, "locals", sizeof("locals")-1, create_locals_zval() TSRMLS_CC);
+
+	return ex;
+}
 /* }}} */
 
-/* Remove the following function when you have successfully modified config.m4
-   so that your module can be compiled into PHP, it exists only for testing
-   purposes. */
-
-/* Every user-visible function in PHP should document itself in the source */
-/* {{{ proto string confirm_exception-locals_compiled(string arg)
-   Return a string to confirm that the module is compiled in */
-PHP_FUNCTION(confirm_exception-locals_compiled)
+/* {{{ proto array Exception::getLocals()
+   Get the exception local variables */
+ZEND_METHOD(exception, getLocals)
 {
-	char *arg = NULL;
-	size_t arg_len, len;
-	zend_string *strg;
+	zval* locals;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "s", &arg, &arg_len) == FAILURE) {
+	if (zend_parse_parameters_none() == FAILURE) {
 		return;
 	}
 
-	strg = strpprintf(0, "Congratulations! You have successfully modified ext/%.78s/config.m4. Module %.78s is now compiled into PHP.", "exception-locals", arg);
+	locals = zend_read_property(get_base_exception_ce(), getThis(), "locals", sizeof("locals") - 1, 0);
 
-	RETURN_STR(strg);
+	*return_value = *locals;
+	zval_copy_ctor(return_value);
+	INIT_PZVAL(return_value);
 }
 /* }}} */
-/* The previous line is meant for vim and emacs, so it can correctly fold and
-   unfold functions in source code. See the corresponding marks just before
-   function definition, where the functions purpose is also documented. Please
-   follow this convention for the convenience of others editing your code.
-*/
 
+static const zend_function_entry default_exception_extra_functions[] = {
+	ZEND_ME(exception, getLocals, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_FINAL)
+	ZEND_FE_END
+};
 
-/* {{{ php_exception-locals_init_globals
- */
-/* Uncomment this function if you have INI entries
-static void php_exception-locals_init_globals(zend_exception-locals_globals *exception-locals_globals)
+static int register_locals_for_class_entry(zend_class_entry **pce TSRMLS_DC)
 {
-	exception-locals_globals->global_value = 0;
-	exception-locals_globals->global_string = NULL;
+	if (pce && instanceof_function(*pce, get_base_exception_ce())) {
+		zend_declare_property_null(*pce, "locals", sizeof("locals")-1, ZEND_ACC_PRIVATE);
+		zend_register_functions(*pce, default_exception_extra_functions, &(*pce)->function_table, MODULE_PERSISTENT);
+	}
+
+	return ZEND_HASH_APPLY_KEEP;
 }
-*/
-/* }}} */
 
 /* {{{ PHP_MINIT_FUNCTION
  */
-PHP_MINIT_FUNCTION(exception-locals)
+PHP_MINIT_FUNCTION(exception_locals)
 {
-	/* If you have INI entries, uncomment these lines
-	REGISTER_INI_ENTRIES();
-	*/
+	// hook base_exception_new
+	original_base_exception_new = get_base_exception_ce()->create_object;
+	get_base_exception_ce()->create_object = exception_locals_exception_new;
+
+	// declare locals property and getLocals() method in BaseException
+	zend_declare_property_null(get_base_exception_ce(), "locals", sizeof("locals")-1, ZEND_ACC_PRIVATE);
+	zend_register_functions(get_base_exception_ce(), default_exception_extra_functions, &get_base_exception_ce()->function_table, MODULE_PERSISTENT);
+
+	// declare locals property and getLocals() method to all subclasses of BaseException as well
+	zend_hash_apply(CG(class_table), (apply_func_t) register_locals_for_class_entry);
+
 	return SUCCESS;
 }
 /* }}} */
+
+static int unregister_getlocals_method(zend_class_entry **pce TSRMLS_DC)
+{
+	if (pce && instanceof_function(*pce, get_base_exception_ce())) {
+		zend_unregister_functions(default_exception_extra_functions, -1, &(*pce)->function_table);
+	}
+
+	return ZEND_HASH_APPLY_KEEP;
+}
 
 /* {{{ PHP_MSHUTDOWN_FUNCTION
  */
-PHP_MSHUTDOWN_FUNCTION(exception-locals)
+PHP_MSHUTDOWN_FUNCTION(exception_locals)
 {
-	/* uncomment this line if you have INI entries
-	UNREGISTER_INI_ENTRIES();
-	*/
-	return SUCCESS;
-}
-/* }}} */
+	// restore base_exception_new hook
+	get_base_exception_ce()->create_object = original_base_exception_new;
 
-/* Remove if there's nothing to do at request start */
-/* {{{ PHP_RINIT_FUNCTION
- */
-PHP_RINIT_FUNCTION(exception-locals)
-{
-#if defined(COMPILE_DL_EXCEPTION-LOCALS) && defined(ZTS)
-	ZEND_TSRMLS_CACHE_UPDATE();
-#endif
-	return SUCCESS;
-}
-/* }}} */
+	// remove getLocals() method from exceptions
+	zend_unregister_functions(default_exception_extra_functions, -1, &get_base_exception_ce()->function_table);
+	zend_hash_apply(CG(class_table), (apply_func_t) unregister_getlocals_method);
 
-/* Remove if there's nothing to do at request end */
-/* {{{ PHP_RSHUTDOWN_FUNCTION
- */
-PHP_RSHUTDOWN_FUNCTION(exception-locals)
-{
 	return SUCCESS;
 }
 /* }}} */
 
 /* {{{ PHP_MINFO_FUNCTION
  */
-PHP_MINFO_FUNCTION(exception-locals)
+PHP_MINFO_FUNCTION(exception_locals)
 {
 	php_info_print_table_start();
 	php_info_print_table_header(2, "exception-locals support", "enabled");
 	php_info_print_table_end();
-
-	/* Remove comments if you have entries in php.ini
-	DISPLAY_INI_ENTRIES();
-	*/
 }
 /* }}} */
 
-/* {{{ exception-locals_functions[]
- *
- * Every user visible function must have an entry in exception-locals_functions[].
+/* {{{ exception_locals_module_entry
  */
-const zend_function_entry exception-locals_functions[] = {
-	PHP_FE(confirm_exception-locals_compiled,	NULL)		/* For testing, remove later. */
-	PHP_FE_END	/* Must be the last line in exception-locals_functions[] */
-};
-/* }}} */
-
-/* {{{ exception-locals_module_entry
- */
-zend_module_entry exception-locals_module_entry = {
+zend_module_entry exception_locals_module_entry = {
 	STANDARD_MODULE_HEADER,
 	"exception-locals",
-	exception-locals_functions,
-	PHP_MINIT(exception-locals),
-	PHP_MSHUTDOWN(exception-locals),
-	PHP_RINIT(exception-locals),		/* Replace with NULL if there's nothing to do at request start */
-	PHP_RSHUTDOWN(exception-locals),	/* Replace with NULL if there's nothing to do at request end */
-	PHP_MINFO(exception-locals),
-	PHP_EXCEPTION-LOCALS_VERSION,
+	NULL,
+	PHP_MINIT(exception_locals),
+	PHP_MSHUTDOWN(exception_locals),
+	NULL,
+	NULL,
+	PHP_MINFO(exception_locals),
+	PHP_EXCEPTION_LOCALS_VERSION,
 	STANDARD_MODULE_PROPERTIES
 };
 /* }}} */
 
-#ifdef COMPILE_DL_EXCEPTION-LOCALS
+#ifdef COMPILE_DL_EXCEPTION_LOCALS
 #ifdef ZTS
 ZEND_TSRMLS_CACHE_DEFINE();
 #endif
-ZEND_GET_MODULE(exception-locals)
+ZEND_GET_MODULE(exception_locals)
 #endif
-
-/*
- * Local variables:
- * tab-width: 4
- * c-basic-offset: 4
- * End:
- * vim600: noet sw=4 ts=4 fdm=marker
- * vim<600: noet sw=4 ts=4
- */

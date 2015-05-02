@@ -1,21 +1,61 @@
 --TEST--
-Check for exception-locals presence
---SKIPIF--
-<?php if (!extension_loaded("exception-locals")) print "skip"; ?>
+Simple test
 --FILE--
-<?php 
-echo "exception-locals extension is available";
-/*
-	you can add regression tests for your extension here
+<?php
+function d($a = 1) {
+	$foo = 'bar';
 
-  the output of your test code has to be equal to the
-  text in the --EXPECT-- section below for the tests
-  to pass, differences between the output and the
-  expected text are interpreted as failure
+	throw new RuntimeException('foo');
+}
 
-	see php7/README.TESTING for further information on
-  writing regression tests
-*/
-?>
+function c() {
+	$bar = array('foo');
+	static $wut = 'blat';
+	d();
+}
+
+class A {
+	public function b() {
+		$start = 'go';
+		c();
+	}
+}
+
+$a = 1;
+$b = '2';
+
+try {
+	(new A())->b();
+} catch (Exception $ex) {
+	var_dump($ex->getLocals());
+}
 --EXPECT--
-exception-locals extension is available
+array(4) {
+  [0]=>
+  array(1) {
+    ["foo"]=>
+    string(3) "bar"
+  }
+  [1]=>
+  array(2) {
+    ["bar"]=>
+    array(1) {
+      [0]=>
+      string(3) "foo"
+    }
+    ["wut"]=>
+    &string(4) "blat"
+  }
+  [2]=>
+  array(1) {
+    ["start"]=>
+    string(2) "go"
+  }
+  [3]=>
+  array(2) {
+    ["a"]=>
+    int(1)
+    ["b"]=>
+    string(1) "2"
+  }
+}
