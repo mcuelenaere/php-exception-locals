@@ -1,0 +1,8 @@
+/configure.in
+/ltmain.sh
+/libs.mk
+/build
+/scan_makefile_in.awk
+/Makefile.global
+/acinclude.m4
+/config.sub
