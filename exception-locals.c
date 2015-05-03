@@ -55,6 +55,16 @@ static void unhook_create_object(zend_class_entry *ce)
 	}
 }
 
+// helper function
+static inline zval** execute_data_get_zval(zend_execute_data *ex, int index)
+{
+#if PHP_VERSION_ID < 50500
+	return ex->CVs[index];
+#else
+	return *EX_CV_NUM(ex, index);
+#endif
+}
+
 // helper function which does all the heavy lifting
 static int merge_in_locals(zval* trace TSRMLS_DC)
 {
@@ -93,18 +103,19 @@ static int merge_in_locals(zval* trace TSRMLS_DC)
 		if (ex->op_array) {
 			int i;
 			for (i = ex->op_array->num_args; i < ex->op_array->last_var; i++) {
-				if (*EX_CV_NUM(ex, i)) {
-					if (UNEXPECTED(**EX_CV_NUM(ex, i) == &EG(uninitialized_zval))) {
+				zval** val = execute_data_get_zval(ex, i);
+				if (val) {
+					if (UNEXPECTED(*val == &EG(uninitialized_zval))) {
 						continue;
 					}
 
-					Z_ADDREF_P(**EX_CV_NUM(ex, i));
+					Z_ADDREF_P(*val);
 					zend_hash_quick_add(
 						Z_ARRVAL_P(stack_frame),
 						ex->op_array->vars[i].name,
 						ex->op_array->vars[i].name_len + 1,
 						ex->op_array->vars[i].hash_value,
-						*EX_CV_NUM(ex, i),
+						val,
 						sizeof(zval*),
 						NULL
 					);
