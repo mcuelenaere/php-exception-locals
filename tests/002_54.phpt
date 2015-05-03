@@ -1,7 +1,7 @@
 --TEST--
 Check all defined exception classes for locals variable
 --SKIPIF--
-<?php if(PHP_VERSION_ID < 50500) die('Skipped: requires PHP >= 5.5');
+<?php if(PHP_VERSION_ID >= 50500) die('Skipped: requires PHP < 5.5');
 --FILE--
 <?php
 function run() {
@@ -26,7 +26,7 @@ array(1) {
   [0]=>
   array(5) {
     ["file"]=>
-    string(%d) "%s/tests/002.php"
+    string(%d) "%s/tests/002_54.php"
     ["line"]=>
     int(17)
     ["function"]=>
@@ -46,7 +46,7 @@ array(1) {
   [0]=>
   array(5) {
     ["file"]=>
-    string(%d) "%s/tests/002.php"
+    string(%d) "%s/tests/002_54.php"
     ["line"]=>
     int(17)
     ["function"]=>
@@ -66,7 +66,7 @@ array(1) {
   [0]=>
   array(5) {
     ["file"]=>
-    string(%d) "%s/tests/002.php"
+    string(%d) "%s/tests/002_54.php"
     ["line"]=>
     int(17)
     ["function"]=>
@@ -86,7 +86,7 @@ array(1) {
   [0]=>
   array(5) {
     ["file"]=>
-    string(%d) "%s/tests/002.php"
+    string(%d) "%s/tests/002_54.php"
     ["line"]=>
     int(17)
     ["function"]=>
@@ -101,32 +101,12 @@ array(1) {
     }
   }
 }
-IntlException
-array(1) {
-  [0]=>
-  array(5) {
-    ["file"]=>
-    string(%d) "%s/tests/002.php"
-    ["line"]=>
-    int(17)
-    ["function"]=>
-    string(3) "run"
-    ["args"]=>
-    array(0) {
-    }
-    ["locals"]=>
-    array(1) {
-      ["class"]=>
-      string(13) "IntlException"
-    }
-  }
-}
 PharException
 array(1) {
   [0]=>
   array(5) {
     ["file"]=>
-    string(%d) "%s/tests/002.php"
+    string(%d) "%s/tests/002_54.php"
     ["line"]=>
     int(17)
     ["function"]=>
@@ -146,7 +126,7 @@ array(1) {
   [0]=>
   array(5) {
     ["file"]=>
-    string(%d) "%s/tests/002.php"
+    string(%d) "%s/tests/002_54.php"
     ["line"]=>
     int(17)
     ["function"]=>
@@ -166,7 +146,7 @@ array(1) {
   [0]=>
   array(5) {
     ["file"]=>
-    string(%d) "%s/tests/002.php"
+    string(%d) "%s/tests/002_54.php"
     ["line"]=>
     int(17)
     ["function"]=>
