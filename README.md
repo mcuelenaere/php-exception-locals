@@ -1,7 +1,7 @@
 Local variables support for PHP exceptions
 ==========================================
 
-[![Latest Stable Version](http://img.shields.io/github/release/mcuelenaere/exception-locals.svg)](https://packagist.org/packages/mcuelenaere/exception-locals) [![Build Status](http://img.shields.io/travis/mcuelenaere/exception-locals.svg)](https://travis-ci.org/mcuelenaere/exception-locals)
+[![Build Status](http://img.shields.io/travis/mcuelenaere/php-exception-locals.svg)](https://travis-ci.org/mcuelenaere/php-exception-locals)
 
 With this PHP extension, the contents of the local variables of an exception' stacktrace are captured and exposed in the `getTrace()` method.
 
