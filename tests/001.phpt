@@ -29,12 +29,12 @@ try {
 } catch (Exception $ex) {
 	var_dump($ex->getTrace());
 }
---EXPECT--
+--EXPECTF--
 array(3) {
   [0]=>
   array(5) {
     ["file"]=>
-    string(62) "/Users/mcuelenaere/Projects/php-exception-locals/tests/001.php"
+    string(62) "%s/tests/001.php"
     ["line"]=>
     int(11)
     ["function"]=>
@@ -51,7 +51,7 @@ array(3) {
   [1]=>
   array(5) {
     ["file"]=>
-    string(62) "/Users/mcuelenaere/Projects/php-exception-locals/tests/001.php"
+    string(62) "%s/tests/001.php"
     ["line"]=>
     int(17)
     ["function"]=>
@@ -73,7 +73,7 @@ array(3) {
   [2]=>
   array(7) {
     ["file"]=>
-    string(62) "/Users/mcuelenaere/Projects/php-exception-locals/tests/001.php"
+    string(62) "%s/tests/001.php"
     ["line"]=>
     int(25)
     ["function"]=>

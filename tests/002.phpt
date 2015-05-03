@@ -18,13 +18,13 @@ function run() {
 }
 
 run();
---EXPECT--
+--EXPECTF--
 ErrorException
 array(1) {
   [0]=>
   array(5) {
     ["file"]=>
-    string(62) "/Users/mcuelenaere/Projects/php-exception-locals/tests/002.php"
+    string(62) "%s/tests/002.php"
     ["line"]=>
     int(17)
     ["function"]=>
@@ -44,7 +44,7 @@ array(1) {
   [0]=>
   array(5) {
     ["file"]=>
-    string(62) "/Users/mcuelenaere/Projects/php-exception-locals/tests/002.php"
+    string(62) "%s/tests/002.php"
     ["line"]=>
     int(17)
     ["function"]=>
@@ -64,7 +64,7 @@ array(1) {
   [0]=>
   array(5) {
     ["file"]=>
-    string(62) "/Users/mcuelenaere/Projects/php-exception-locals/tests/002.php"
+    string(62) "%s/tests/002.php"
     ["line"]=>
     int(17)
     ["function"]=>
@@ -84,7 +84,7 @@ array(1) {
   [0]=>
   array(5) {
     ["file"]=>
-    string(62) "/Users/mcuelenaere/Projects/php-exception-locals/tests/002.php"
+    string(62) "%s/tests/002.php"
     ["line"]=>
     int(17)
     ["function"]=>
@@ -104,7 +104,7 @@ array(1) {
   [0]=>
   array(5) {
     ["file"]=>
-    string(62) "/Users/mcuelenaere/Projects/php-exception-locals/tests/002.php"
+    string(62) "%s/tests/002.php"
     ["line"]=>
     int(17)
     ["function"]=>
@@ -124,7 +124,7 @@ array(1) {
   [0]=>
   array(5) {
     ["file"]=>
-    string(62) "/Users/mcuelenaere/Projects/php-exception-locals/tests/002.php"
+    string(62) "%s/tests/002.php"
     ["line"]=>
     int(17)
     ["function"]=>
@@ -144,7 +144,7 @@ array(1) {
   [0]=>
   array(5) {
     ["file"]=>
-    string(62) "/Users/mcuelenaere/Projects/php-exception-locals/tests/002.php"
+    string(62) "%s/tests/002.php"
     ["line"]=>
     int(17)
     ["function"]=>
@@ -164,7 +164,7 @@ array(1) {
   [0]=>
   array(5) {
     ["file"]=>
-    string(62) "/Users/mcuelenaere/Projects/php-exception-locals/tests/002.php"
+    string(62) "%s/tests/002.php"
     ["line"]=>
     int(17)
     ["function"]=>
