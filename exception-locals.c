@@ -103,9 +103,9 @@ static int merge_in_locals(zval* trace)
 						ex->op_array->vars[i].name,
 						ex->op_array->vars[i].name_len + 1,
 						ex->op_array->vars[i].hash_value,
-						(void**)*EX_CV_NUM(ex, i),
+						*EX_CV_NUM(ex, i),
 						sizeof(zval*),
-						(void**)EX_CV_NUM(ex, i)
+						NULL
 					);
 				}
 			}
