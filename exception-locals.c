@@ -6,7 +6,7 @@
 #include <ext/standard/info.h>
 #include <Zend/zend_exceptions.h>
 #include <Zend/zend_types.h>
-#include "php_exception-locals.h"
+#include "exception-locals.h"
 
 static inline zend_class_entry* get_base_exception_ce()
 {
@@ -232,7 +232,7 @@ zend_module_entry exception_locals_module_entry = {
 	NULL,
 	NULL,
 	PHP_MINFO(exception_locals),
-	PHP_EXCEPTION_LOCALS_VERSION,
+	EXCEPTION_LOCALS_VERSION,
 	STANDARD_MODULE_PROPERTIES
 };
 /* }}} */

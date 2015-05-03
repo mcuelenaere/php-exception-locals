@@ -1,17 +1,17 @@
-#ifndef PHP_EXCEPTION_LOCALS_H
-#define PHP_EXCEPTION_LOCALS_H
+#ifndef EXCEPTION_LOCALS_H
+#define EXCEPTION_LOCALS_H
 
 extern zend_module_entry exception_locals_module_entry;
 #define phpext_exception_locals_ptr &exception_locals_module_entry
 
-#define PHP_EXCEPTION_LOCALS_VERSION "0.1.0" /* Replace with version number for your extension */
+#define EXCEPTION_LOCALS_VERSION "0.1.0"
 
 #ifdef PHP_WIN32
-#	define PHP_EXCEPTION_LOCALS_API __declspec(dllexport)
+#	define EXCEPTION_LOCALS_API __declspec(dllexport)
 #elif defined(__GNUC__) && __GNUC__ >= 4
-#	define PHP_EXCEPTION_LOCALS_API __attribute__ ((visibility("default")))
+#	define EXCEPTION_LOCALS_API __attribute__ ((visibility("default")))
 #else
-#	define PHP_EXCEPTION_LOCALS_API
+#	define EXCEPTION_LOCALS_API
 #endif
 
 #ifdef ZTS
@@ -27,4 +27,4 @@ ZEND_TSRMLS_CACHE_EXTERN();
 #define EXCEPTION_LOCALS_G(v) (exception_locals_globals.v)
 #endif
 
-#endif	/* PHP_EXCEPTION_LOCALS_H */
+#endif	/* EXCEPTION_LOCALS_H */
