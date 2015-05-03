@@ -24,7 +24,7 @@ array(1) {
   [0]=>
   array(5) {
     ["file"]=>
-    string(62) "%s/tests/003.php"
+    string(%d) "%s/tests/003.php"
     ["line"]=>
     int(16)
     ["function"]=>
@@ -47,7 +47,7 @@ array(1) {
   [0]=>
   array(5) {
     ["file"]=>
-    string(62) "%s/tests/003.php"
+    string(%d) "%s/tests/003.php"
     ["line"]=>
     int(17)
     ["function"]=>
@@ -70,7 +70,7 @@ array(1) {
   [0]=>
   array(5) {
     ["file"]=>
-    string(62) "%s/tests/003.php"
+    string(%d) "%s/tests/003.php"
     ["line"]=>
     int(18)
     ["function"]=>
