@@ -1,0 +1,17 @@
+language: php
+php:
+  - 5.4
+  - 5.5
+  - 5.6
+
+install:
+  - phpize && ./configure && make
+
+script:
+  - REPORT_EXIT_STATUS=1 TEST_PHP_ARGS="-q -s test_output.txt" make test
+  - test $(fgrep -c 'FAILED TEST SUMMARY' test_output.txt) -eq 0
+
+after_failure:
+  - cat test_output.txt
+
+sudo: false
