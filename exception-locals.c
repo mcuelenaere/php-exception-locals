@@ -8,13 +8,57 @@
 #include <Zend/zend_types.h>
 #include "php_exception-locals.h"
 
-// helper function which does all the heavy lifting
-static zval* create_locals_zval()
+static inline zend_class_entry* get_base_exception_ce()
 {
-	zval* return_value;
-	zend_execute_data *ex;
+	// TODO: use zend_exception_get_base() in PHP7
+	return zend_exception_get_default();
+}
 
-	ALLOC_ZVAL(return_value);
+typedef zend_object_value (*exception_new_t)(zend_class_entry *class_type TSRMLS_DC);
+static zend_object_value exception_locals_exception_new(zend_class_entry *class_type TSRMLS_DC);
+
+static HashTable* original_new_exception_hooks;
+
+static exception_new_t find_original_create_object_by_class_entry(zend_class_entry *ce)
+{
+	exception_new_t* original_create_object;
+	if (zend_hash_find(original_new_exception_hooks, ce->name, ce->name_length + 1, (void**) &original_create_object) == SUCCESS) {
+		return *original_create_object;
+	} else {
+		return NULL;
+	}
+}
+
+static void hook_create_object(zend_class_entry *ce)
+{
+	exception_new_t* create_object = (exception_new_t*) ce->create_object;
+
+	int ret = zend_hash_add(
+		original_new_exception_hooks,
+		ce->name,
+		ce->name_length + 1,
+		&create_object,
+		sizeof(exception_new_t),
+		NULL
+	);
+
+	if (ret == SUCCESS) {
+		ce->create_object = exception_locals_exception_new;
+	}
+}
+
+static void unhook_create_object(zend_class_entry *ce)
+{
+	exception_new_t* original_create_object;
+	if (zend_hash_find(original_new_exception_hooks, ce->name, ce->name_length + 1, (void**) &original_create_object) == SUCCESS) {
+		ce->create_object = *original_create_object;
+	}
+}
+
+// helper function which does all the heavy lifting
+static int merge_in_locals(zval* trace)
+{
+	zend_execute_data *ex;
 
 	// search for last called user function
 	ex = EG(current_execute_data);
@@ -22,13 +66,11 @@ static zval* create_locals_zval()
 		ex = ex->prev_execute_data;
 	}
 	if (!ex || !ex->op_array->last_var) {
-		RETVAL_NULL();
-		return return_value;
+		return FAILURE;
 	}
 
-	// build locals array
-	array_init(return_value);
-
+	// build locals arrays
+	ulong frameno = 0;
 	while (ex) {
 		zval* stack_frame;
 
@@ -69,70 +111,63 @@ static zval* create_locals_zval()
 			}
 		}
 
-		add_next_index_zval(return_value, stack_frame);
+		zval **trace_entry;
+		if (zend_hash_index_find(Z_ARRVAL_P(trace), frameno, (void**) &trace_entry) == SUCCESS) {
+			add_assoc_zval_ex(*trace_entry, "locals", sizeof("locals"), stack_frame);
+		}
 
 		ex = ex->prev_execute_data;
+		frameno++;
 	}
 
-	return return_value;
+	return SUCCESS;
 }
-
-static inline zend_class_entry* get_base_exception_ce()
-{
-	// TODO: use zend_exception_get_base() in PHP7
-	return zend_exception_get_default();
-}
-
-static zend_object_value (*original_base_exception_new)(zend_class_entry *class_type TSRMLS_DC);
 
 /* {{{ */
 static zend_object_value exception_locals_exception_new(zend_class_entry *class_type TSRMLS_DC)
 {
-	zend_object_value ex;
-	zval zval_ex;
+	exception_new_t create_object;
+	zend_object_value exc;
+	zval zval_exc;
+	zval* trace;
 
 	// call original constructor
-	ex = original_base_exception_new(class_type);
+	create_object = find_original_create_object_by_class_entry(class_type);
+	if (create_object == NULL) {
+		// TODO: raise error
+		return exc;
+	}
+	exc = create_object(class_type);
 
 	// convert zend_object_value into a zval
-	Z_OBJVAL(zval_ex) = ex;
-	Z_OBJ_HT(zval_ex) = zend_get_std_object_handlers();
+	Z_OBJVAL(zval_exc) = exc;
+	Z_OBJ_HT(zval_exc) = zend_get_std_object_handlers();
 
-	// fill locals value
-	zend_update_property(class_type, &zval_ex, "locals", sizeof("locals")-1, create_locals_zval() TSRMLS_CC);
+	// read trace property
+	trace = zend_read_property(get_base_exception_ce(), &zval_exc, "trace", sizeof("trace")-1, 0 TSRMLS_CC);
 
-	return ex;
-}
-/* }}} */
-
-/* {{{ proto array Exception::getLocals()
-   Get the exception local variables */
-ZEND_METHOD(exception, getLocals)
-{
-	zval* locals;
-
-	if (zend_parse_parameters_none() == FAILURE) {
-		return;
+	// merge in locals
+	if (Z_TYPE_P(trace) == IS_ARRAY) {
+		merge_in_locals(trace);
 	}
 
-	locals = zend_read_property(get_base_exception_ce(), getThis(), "locals", sizeof("locals") - 1, 0);
-
-	*return_value = *locals;
-	zval_copy_ctor(return_value);
-	INIT_PZVAL(return_value);
+	return exc;
 }
 /* }}} */
 
-static const zend_function_entry default_exception_extra_functions[] = {
-	ZEND_ME(exception, getLocals, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_FINAL)
-	ZEND_FE_END
-};
-
-static int register_locals_for_class_entry(zend_class_entry **pce TSRMLS_DC)
+static int hook_create_object_cb(zend_class_entry **pce TSRMLS_DC)
 {
 	if (pce && instanceof_function(*pce, get_base_exception_ce())) {
-		zend_declare_property_null(*pce, "locals", sizeof("locals")-1, ZEND_ACC_PRIVATE);
-		zend_register_functions(*pce, default_exception_extra_functions, &(*pce)->function_table, MODULE_PERSISTENT);
+		hook_create_object(*pce);
+	}
+
+	return ZEND_HASH_APPLY_KEEP;
+}
+
+static int unhook_create_object_cb(zend_class_entry **pce TSRMLS_DC)
+{
+	if (pce && instanceof_function(*pce, get_base_exception_ce())) {
+		unhook_create_object(*pce);
 	}
 
 	return ZEND_HASH_APPLY_KEEP;
@@ -142,40 +177,29 @@ static int register_locals_for_class_entry(zend_class_entry **pce TSRMLS_DC)
  */
 PHP_MINIT_FUNCTION(exception_locals)
 {
-	// hook base_exception_new
-	original_base_exception_new = get_base_exception_ce()->create_object;
-	get_base_exception_ce()->create_object = exception_locals_exception_new;
+	// initialize original new_exception hooks hashtable
+	ALLOC_HASHTABLE(original_new_exception_hooks);
+	zend_hash_init(original_new_exception_hooks, CG(class_table)->nTableSize, NULL, NULL, 1);
 
-	// declare locals property and getLocals() method in BaseException
-	zend_declare_property_null(get_base_exception_ce(), "locals", sizeof("locals")-1, ZEND_ACC_PRIVATE);
-	zend_register_functions(get_base_exception_ce(), default_exception_extra_functions, &get_base_exception_ce()->function_table, MODULE_PERSISTENT);
-
-	// declare locals property and getLocals() method to all subclasses of BaseException as well
-	zend_hash_apply(CG(class_table), (apply_func_t) register_locals_for_class_entry);
+	// hook exception_new functions
+	hook_create_object(get_base_exception_ce());
+	zend_hash_apply(CG(class_table), (apply_func_t) hook_create_object_cb);
 
 	return SUCCESS;
 }
 /* }}} */
 
-static int unregister_getlocals_method(zend_class_entry **pce TSRMLS_DC)
-{
-	if (pce && instanceof_function(*pce, get_base_exception_ce())) {
-		zend_unregister_functions(default_exception_extra_functions, -1, &(*pce)->function_table);
-	}
-
-	return ZEND_HASH_APPLY_KEEP;
-}
-
 /* {{{ PHP_MSHUTDOWN_FUNCTION
  */
 PHP_MSHUTDOWN_FUNCTION(exception_locals)
 {
-	// restore base_exception_new hook
-	get_base_exception_ce()->create_object = original_base_exception_new;
+	// restore exception_new hooks
+	unhook_create_object(get_base_exception_ce());
+	zend_hash_apply(CG(class_table), (apply_func_t) unhook_create_object_cb);
 
-	// remove getLocals() method from exceptions
-	zend_unregister_functions(default_exception_extra_functions, -1, &get_base_exception_ce()->function_table);
-	zend_hash_apply(CG(class_table), (apply_func_t) unregister_getlocals_method);
+	// destroy original new_exception hooks hashtable
+	zend_hash_destroy(original_new_exception_hooks);
+	FREE_HASHTABLE(original_new_exception_hooks);
 
 	return SUCCESS;
 }

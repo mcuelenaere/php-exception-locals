@@ -5,7 +5,7 @@ Simple test
 function d($a = 1) {
 	$foo = 'bar';
 
-	throw new RuntimeException('foo');
+	throw new Exception('foo');
 }
 
 function c() {
@@ -27,35 +27,68 @@ $b = '2';
 try {
 	(new A())->b();
 } catch (Exception $ex) {
-	var_dump($ex->getLocals());
+	var_dump($ex->getTrace());
 }
 --EXPECT--
-array(4) {
+array(3) {
   [0]=>
-  array(1) {
-    ["foo"]=>
-    string(3) "bar"
+  array(5) {
+    ["file"]=>
+    string(62) "/Users/mcuelenaere/Projects/php-exception-locals/tests/001.php"
+    ["line"]=>
+    int(11)
+    ["function"]=>
+    string(1) "d"
+    ["args"]=>
+    array(0) {
+    }
+    ["locals"]=>
+    array(1) {
+      ["foo"]=>
+      string(3) "bar"
+    }
   }
   [1]=>
-  array(2) {
-    ["bar"]=>
-    array(1) {
-      [0]=>
-      string(3) "foo"
+  array(5) {
+    ["file"]=>
+    string(62) "/Users/mcuelenaere/Projects/php-exception-locals/tests/001.php"
+    ["line"]=>
+    int(17)
+    ["function"]=>
+    string(1) "c"
+    ["args"]=>
+    array(0) {
     }
-    ["wut"]=>
-    &string(4) "blat"
+    ["locals"]=>
+    array(2) {
+      ["bar"]=>
+      array(1) {
+        [0]=>
+        string(3) "foo"
+      }
+      ["wut"]=>
+      &string(4) "blat"
+    }
   }
   [2]=>
-  array(1) {
-    ["start"]=>
-    string(2) "go"
-  }
-  [3]=>
-  array(2) {
-    ["a"]=>
-    int(1)
-    ["b"]=>
-    string(1) "2"
+  array(7) {
+    ["file"]=>
+    string(62) "/Users/mcuelenaere/Projects/php-exception-locals/tests/001.php"
+    ["line"]=>
+    int(25)
+    ["function"]=>
+    string(1) "b"
+    ["class"]=>
+    string(1) "A"
+    ["type"]=>
+    string(2) "->"
+    ["args"]=>
+    array(0) {
+    }
+    ["locals"]=>
+    array(1) {
+      ["start"]=>
+      string(2) "go"
+    }
   }
 }
