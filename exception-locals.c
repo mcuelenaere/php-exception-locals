@@ -133,8 +133,14 @@ static zend_object_value exception_locals_exception_new(zend_class_entry *class_
 
 	// call original constructor
 	create_object = find_original_create_object_by_class_entry(class_type);
+
+	while (create_object == NULL && class_type->parent != NULL) {
+		// try parent constructor, if we couldn't find anything
+		create_object = find_original_create_object_by_class_entry(class_type->parent);
+	}
+
 	if (create_object == NULL) {
-		// TODO: raise error
+		zend_error(E_ERROR, "Could not find original constructor of '%s'", class_type->name);
 		return exc;
 	}
 	exc = create_object(class_type);
